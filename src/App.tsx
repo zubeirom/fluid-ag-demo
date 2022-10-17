@@ -10,6 +10,8 @@ import { SharedMap } from 'fluid-framework';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Button, Container, Navbar } from 'react-bootstrap';
+import { AzureClient, AzureRemoteConnectionConfig } from '@fluidframework/azure-client';
+import { InsecureTokenProvider } from '@fluidframework/test-client-utils';
 
 interface IOlympicData {
   athlete: string;
@@ -24,7 +26,17 @@ interface IOlympicData {
   total: number;
 }
 
-const client = new TinyliciousClient();
+const remoteConnection = {
+  tenantId: 'tenant',
+  type: 'remote',
+  tokenProvider: new InsecureTokenProvider("key", { id: "userId" }),
+  endpoint: "https://us.fluidrelay.azure.com",
+} as AzureRemoteConnectionConfig;
+
+
+const client = new AzureClient({
+  connection: remoteConnection
+});
 const containerSchema = { initialObjects: { sharedGrid: SharedMap } };
 const gridData = 'gridData';
 
