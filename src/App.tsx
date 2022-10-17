@@ -6,7 +6,7 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './App.css';
 import TinyliciousClient from '@fluidframework/tinylicious-client';
-import { ContainerSchema, FluidContainer, SharedMap } from 'fluid-framework';
+import { SharedMap } from 'fluid-framework';
 
 interface IOlympicData {
   athlete: string;
@@ -21,18 +21,30 @@ interface IOlympicData {
   total: number;
 }
 
-const client: TinyliciousClient = new TinyliciousClient();
-const containerSchema: ContainerSchema = {
-  initialObjects: { myMap: SharedMap }
-};
+const client = new TinyliciousClient();
+const containerSchema = { initialObjects: { sharedGrid: SharedMap } };
 const gridData = 'gridData';
+
+const getFluidData = async () => {
+  let container;
+  const containerId = window.location.hash.substring(1);
+  if (!containerId) {
+    ({ container } = await client.createContainer(containerSchema));
+    const id = await container.attach();
+    window.location.hash = id;
+  } else {
+    ({ container } = await client.getContainer(containerId, containerSchema));
+  }
+
+  return container.initialObjects;
+};
 
 function App() {
   const gridRef = useRef<AgGridReact>(null);
   const containerStyle = useMemo(() => ({ width: '100%', height: '850px' }), []);
   const gridStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const [rowData, setRowData] = useState<IOlympicData[]>(data);
-  const [fluidMap, setFluidMap] = useState<SharedMap>();
+  const [fluidSharedObjects, setFluidSharedObjects] = useState<{sharedGrid: SharedMap}>();
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([
     { field: 'athlete' },
     { field: 'age', maxWidth: 100 },
@@ -66,8 +78,42 @@ function App() {
   }
 
   const handleCellChange = () => {
-    console.log(getRowData());
+    if(fluidSharedObjects) {
+      const { sharedGrid } = fluidSharedObjects;
+      sharedGrid.set(gridData, getRowData());
+    }
   }
+
+  const setGridRowData = (rowData: IOlympicData[]) => {
+    gridRef.current?.api.setRowData(rowData);
+  }
+
+  useEffect(() => {
+    getFluidData().then((sharedObjects: any) => {
+      setFluidSharedObjects(sharedObjects);
+    });
+  }, []);
+
+  useEffect(() => {
+    if(fluidSharedObjects) {
+      const { sharedGrid } = fluidSharedObjects;
+      const updateGrid = () => {
+        if(sharedGrid) {
+          const newData = sharedGrid.get(gridData);
+          if(newData) {
+            setGridRowData(newData)
+          }
+        }
+      }
+
+      updateGrid();
+      sharedGrid.on('valueChanged', updateGrid);
+
+      return () => { sharedGrid.off('valueChanged', updateGrid); }
+    } else {
+      return;
+    }
+  }, [fluidSharedObjects])
 
 
   return (
