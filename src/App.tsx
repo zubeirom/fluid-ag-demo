@@ -1,12 +1,15 @@
+import 'ag-grid-enterprise'
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { data } from './data';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, RowNode } from 'ag-grid-community';
+import { CellValueChangedEvent, ColDef, RowNode } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import './App.css';
-import TinyliciousClient from '@fluidframework/tinylicious-client';
+import TinyliciousClient, { TinyliciousAudience } from '@fluidframework/tinylicious-client';
 import { SharedMap } from 'fluid-framework';
+import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Button, Container, Navbar } from 'react-bootstrap';
 
 interface IOlympicData {
   athlete: string;
@@ -26,44 +29,41 @@ const containerSchema = { initialObjects: { sharedGrid: SharedMap } };
 const gridData = 'gridData';
 
 const getFluidData = async () => {
-  let container;
+  let initContainer;
+  let initServices;
   const containerId = window.location.hash.substring(1);
   if (!containerId) {
-    ({ container } = await client.createContainer(containerSchema));
+    const { container, services } = await client.createContainer(containerSchema);
+    initContainer = container;
+    initServices = services;
     const id = await container.attach();
     window.location.hash = id;
   } else {
-    ({ container } = await client.getContainer(containerId, containerSchema));
+    const { container, services } = await client.getContainer(containerId, containerSchema);
+    initContainer = container;
+    initServices = services;
   }
 
-  return container.initialObjects;
+  return { fso: initContainer.initialObjects, fs: initServices };
 };
 
 function App() {
   const gridRef = useRef<AgGridReact>(null);
-  const containerStyle = useMemo(() => ({ width: '100%', height: '850px' }), []);
+  const containerStyle = useMemo(() => ({ height: '350px' }), []);
   const gridStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const [rowData, setRowData] = useState<IOlympicData[]>(data);
-  const [fluidSharedObjects, setFluidSharedObjects] = useState<{sharedGrid: SharedMap}>();
+  const [audience, setAudience] = useState<number>(0);
+  const [fluidSharedObjects, setFluidSharedObjects] = useState<{ sharedGrid: SharedMap }>();
+  const [fluidServices, setFluidServices] = useState<{audience: TinyliciousAudience}>();
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([
     { field: 'athlete' },
-    { field: 'age', maxWidth: 100 },
+    { field: 'age' },
     { field: 'country' },
-    { field: 'year', maxWidth: 100 },
-    {
-      field: 'date'
-    },
-    { field: 'sport' },
-    { field: 'gold' },
-    { field: 'silver' },
-    { field: 'bronze' },
-    { field: 'total' },
   ]);
 
   const defaultColDef = useMemo<ColDef>(() => {
     return {
       flex: 1,
-      minWidth: 150,
       editable: true,
       enableCellChangeFlash: true
     };
@@ -77,8 +77,9 @@ function App() {
     return rowNodes;
   }
 
-  const handleCellChange = () => {
-    if(fluidSharedObjects) {
+  const handleCellChange = (event: CellValueChangedEvent) => {
+    console.info('Cell Value Changed');
+    if (fluidSharedObjects) {
       const { sharedGrid } = fluidSharedObjects;
       sharedGrid.set(gridData, getRowData());
     }
@@ -89,18 +90,20 @@ function App() {
   }
 
   useEffect(() => {
-    getFluidData().then((sharedObjects: any) => {
-      setFluidSharedObjects(sharedObjects);
+    getFluidData().then((payload: {fso: any, fs: any}) => {
+      setFluidSharedObjects(payload.fso);
+      setFluidServices(payload.fs);
     });
   }, []);
 
   useEffect(() => {
-    if(fluidSharedObjects) {
+    if (fluidSharedObjects && fluidServices) {
       const { sharedGrid } = fluidSharedObjects;
+      const { audience } = fluidServices;
       const updateGrid = () => {
-        if(sharedGrid) {
+        if (sharedGrid) {
           const newData = sharedGrid.get(gridData);
-          if(newData) {
+          if (newData) {
             setGridRowData(newData)
           }
         }
@@ -108,6 +111,7 @@ function App() {
 
       updateGrid();
       sharedGrid.on('valueChanged', updateGrid);
+      audience.on('membersChanged', () => {setAudience(audience.getMembers().size)})
 
       return () => { sharedGrid.off('valueChanged', updateGrid); }
     } else {
@@ -118,6 +122,18 @@ function App() {
 
   return (
     <>
+      <Navbar bg="dark" variant='dark'>
+        <Container>
+          <Navbar.Brand href="#home">Fluid Demo</Navbar.Brand>
+          <Navbar.Toggle />
+          <Navbar.Collapse className="justify-content-end">
+            <Button variant="info">Zuschauer: {audience}</Button>
+            &nbsp;
+            &nbsp;
+            <Button href='https://github.com/zubeirom/fluid-ag-demo' variant="secondary">GitHub</Button>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
       <div style={containerStyle}>
         <div style={gridStyle} className="ag-theme-alpine">
           <AgGridReact<IOlympicData>

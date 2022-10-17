@@ -11,3 +11,7 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.ag-theme-alpine {
+  --ag-value-change-value-highlight-background-color: green;
+}
