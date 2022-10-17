@@ -36,3 +36,7 @@
     transform: rotate(360deg);
   }
 }
+
+.ag-theme-alpine {
+  --ag-value-change-value-highlight-background-color: green;
+}

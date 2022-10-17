@@ -1,25 +1,81 @@
-import React from 'react';
-import logo from './logo.svg';
+import { useMemo, useRef, useState } from 'react';
+import { data } from './data';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, RowNode } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './App.css';
 
+interface IOlympicData {
+  athlete: string;
+  age: number;
+  country: string;
+  year: number;
+  date: string;
+  sport: string;
+  gold: number;
+  silver: number;
+  bronze: number;
+  total: number;
+}
+
 function App() {
+  const gridRef = useRef<AgGridReact>(null);
+  const containerStyle = useMemo(() => ({ width: '100%', height: '900px' }), []);
+  const gridStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
+  const [rowData, setRowData] = useState<IOlympicData[]>(data);
+  const [columnDefs, setColumnDefs] = useState<ColDef[]>([
+    { field: 'athlete' },
+    { field: 'age', maxWidth: 100 },
+    { field: 'country' },
+    { field: 'year', maxWidth: 100 },
+    {
+      field: 'date'
+    },
+    { field: 'sport' },
+    { field: 'gold' },
+    { field: 'silver' },
+    { field: 'bronze' },
+    { field: 'total' },
+  ]);
+
+  const defaultColDef = useMemo<ColDef>(() => {
+    return {
+      flex: 1,
+      minWidth: 150,
+      editable: true,
+      enableCellChangeFlash: true
+    };
+  }, []);
+
+  const getRowData = (): IOlympicData[] => {
+    const rowNodes: IOlympicData[] = [];
+    debugger;
+    gridRef.current?.api.forEachNode((node: RowNode) => {
+      rowNodes.push(node.data);
+    });
+    return rowNodes;
+  }
+
+  const handleCellChange = () => {
+    console.log(getRowData());
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <div style={containerStyle}>
+        <div style={gridStyle} className="ag-theme-alpine">
+          <AgGridReact<IOlympicData>
+            ref={gridRef}
+            rowData={rowData}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            onCellValueChanged={handleCellChange}
+          ></AgGridReact>
+        </div>
+      </div>
+    </>
+
   );
 }
 
